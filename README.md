@@ -37,3 +37,8 @@ Calendar math (`calendar-core`) is deliberately separated from Android UI (`cale
 
 ## 📸 Screenshots
 
+| Gregorian Month | Hebrew Month | 
+|---|---|
+| <img src="screenshots/gregorian_calenadr_month.jpeg" width="260" alt="Recipes"> | <img src="screenshots/hebrew_calendar_month.jpeg" width="260" alt="Detail Recipe">|
+
+
