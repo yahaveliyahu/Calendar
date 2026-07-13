@@ -23,29 +23,9 @@ Built as a multi-module Android Studio project, on top of a from-scratch impleme
 - **Persisted locally.** Theme, calendar-system choice, and events survive an app restart (SharedPreferences + hand-rolled JSON — no external dependency, matching the "lightweight, drop-in" design goal of `calendar-core`).
 - **Fully themeable.** Every color, cell shape, and text size is configurable, live-previewed in the included Theme Studio app.
 
-## Using the library
+## Watch the App in Action
 
-```kotlin
-val calendarView = HebrewCalendarView(context)
-
-calendarView.theme = CalendarTheme.LIGHT_DEFAULT
-calendarView.config = CalendarConfig(
-    primaryCalendarSystem = HebrewCalendarSystem(),   // or GregorianCalendarSystem()
-    region = Region.ISRAEL
-)
-calendarView.holidayRegistry = HolidayRegistry().apply {
-    enable(JewishHolidayProvider())
-    enable(ChristianHolidayProvider())
-}
-calendarView.onDateSelectedListener = { date -> /* show/add events for this date */ }
-```
-
-## Building
-
-```bash
-./gradlew :calendar-core:test          # runs the JUnit suite -- pure JVM, no emulator needed
-./gradlew :app:installDebug            # builds and installs the Theme Studio demo app
-```
+▶️ **Demo video:** [Click here to watch the video]()
 
 ## Validation
 
@@ -55,6 +35,5 @@ calendarView.onDateSelectedListener = { date -> /* show/add events for this date
 
 Calendar math (`calendar-core`) is deliberately separated from Android UI (`calendar-view`). That split is what makes the algorithm itself independently testable, and would let `calendar-core` be reused outside Android entirely (a backend service, a Kotlin Multiplatform target) without dragging in the Android SDK.
 
-## License
+## 📸 Screenshots
 
-MIT — see [LICENSE](LICENSE).
