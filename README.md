@@ -2,7 +2,7 @@
 
 An Android calendar library with **genuine Hebrew calendar support** — not a Gregorian grid with Hebrew numbers pasted on top, but a real molad-based Hebrew↔Gregorian conversion algorithm, traditional Hebrew letter-numerals (כ״ז, not "27"), and a full Jewish + Christian holiday calendar with historically accurate deferral rules (fasts that move off Shabbat, Yom Ha'atzmaut's day-of-week shifts, and so on).
 
-Built as a multi-module Android Studio project, on top of a from-scratch implementation of the Hebrew calendar's own arithmetic (molad, the 19-year Metonic leap cycle, the four dechiyot postponement rules) rather than a lookup table.
+Built as a multi-module Android Studio project, on top of a from-scratch implementation of the Hebrew calendar's own arithmetic.
 
 ## Modules
 
