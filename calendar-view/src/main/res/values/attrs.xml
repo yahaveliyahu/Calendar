@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="HebrewCalendarView">
+        <attr name="hcv_primaryColor" format="color" />
+        <attr name="hcv_todayIndicatorColor" format="color" />
+        <attr name="hcv_selectedDayColor" format="color" />
+        <attr name="hcv_fridayTextColor" format="color" />
+        <attr name="hcv_saturdayTextColor" format="color" />
+        <attr name="hcv_defaultTextColor" format="color" />
+        <attr name="hcv_holidayDotColor" format="color" />
+        <attr name="hcv_dayTextSize" format="dimension" />
+        <attr name="hcv_cellShape" format="enum">
+            <enum name="circle" value="0" />
+            <enum name="roundedSquare" value="1" />
+        </attr>
+        <attr name="hcv_useHebrewAsPrimary" format="boolean" />
+    </declare-styleable>
+</resources>
