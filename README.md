@@ -35,6 +35,62 @@ Built as a multi-module Android Studio project, on top of a from-scratch impleme
 
 Calendar math (`calendar-core`) is deliberately separated from Android UI (`calendar-view`). That split is what makes the algorithm itself independently testable, and would let `calendar-core` be reused outside Android entirely (a backend service, a Kotlin Multiplatform target) without dragging in the Android SDK.
 
+## 📂 Project Structure
+
+Calendar/
+├── app/ # Demo "Theme Studio" app: live theme editing, calendar-system switching, event management with reminders
+│   ├── src/main/
+│   │   ├── AndroidManifest.xml
+│   │   ├── java/dev/yahaveliyahu/calendar/ui/theme/
+│   │   │   ├── Color.kt
+│   │   │   ├── Theme.kt
+│   │   │   └── Type.kt
+│   │   ├── kotlin/dev/yahaveliyahu/calendar/
+│   │   │   ├── AppStorage.kt
+│   │   │   ├── MainActivity.kt
+│   │   │   ├── ReminderReceiver.kt
+│   │   │   ├── ReminderScheduler.kt
+│   │   │   └── ThemeStudioScreen.kt
+│   │   └── res/ # drawables, mipmap, values, xml
+│   ├── src/androidTest/
+│   ├── src/test/
+│   ├── build.gradle.kts
+│   └── proguard-rules.pro
+├── calendar-core/ # Pure Kotlin, zero Android dependency. Date conversion math, the theming model, and the holiday calendars.
+│   ├── src/main/kotlin/dev/yahaveliyahu/calendar_core/
+│   │   ├── CalendarSystem.kt
+│   │   ├── CalendarTheme.kt
+│   │   ├── EventSerializer.kt
+│   │   ├── HebrewMath.kt
+│   │   ├── HebrewMonth.kt
+│   │   ├── HolidayProvider.kt
+│   │   └── ThemeSerializer.kt
+│   ├── src/test/kotlin/dev/yahaveliyahu/calendar_core/
+│   │   └── HebrewCalendarSystemTest.kt
+│   └── build.gradle.kts
+├── calendar-view/ # The actual library — HebrewCalendarView, a Canvas-drawn custom Android View.
+│   ├── src/main/
+│   │   ├── AndroidManifest.xml
+│   │   ├── kotlin/dev/yahaveliyahu/calendar_view/
+│   │   │   └── HebrewCalendarView.kt
+│   │   └── res/values/
+│   │       └── attrs.xml
+│   ├── src/androidTest/
+│   ├── src/test/
+│   ├── build.gradle.kts
+│   ├── consumer-rules.pro
+│   └── proguard-rules.pro
+├── gradle/
+│   ├── wrapper/
+│   │   ├── gradle-wrapper.jar
+│   │   └── gradle-wrapper.properties
+│   └── libs.versions.toml     
+├── build.gradle.kts
+├── gradle.properties
+├── gradlew
+├── gradlew.bat
+└── settings.gradle.kts
+
 ## 📸 Screenshots
 
 | Gregorian Month | Hebrew Month | 
