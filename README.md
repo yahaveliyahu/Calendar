@@ -25,7 +25,7 @@ Built as a multi-module Android Studio project, on top of a from-scratch impleme
 
 ## Watch the App in Action
 
-▶️ **Demo video:** [Click here to watch the video]()
+▶️ **Demo video:** [Click here to watch the video](https://youtu.be/L-vA5OA5w5U)
 
 ## Validation
 
