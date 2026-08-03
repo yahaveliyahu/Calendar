@@ -5,7 +5,7 @@ import java.util.Locale
 
 /** A date expressed in some non-Gregorian calendar system, for display purposes.
  *  [dayLabel] and [yearLabel] are what actually get drawn -- each [CalendarSystem]
- *  formats its own way (Gregorian: "27" / "2026", Hebrew: "כ״ז" / "תשפ״ו"). */
+ *  formats its own way (Gregorian: "27" / "2026", Hebrew: "כ״ז" / "ה׳תשפ״ו"). */
 data class SystemDate(val year: Int, val month: Int, val day: Int, val monthName: String, val dayLabel: String, val yearLabel: String)
 
 /**
@@ -45,6 +45,16 @@ class GregorianCalendarSystem : CalendarSystem {
     override fun shiftMonths(date: LocalDate, delta: Int): LocalDate =
         java.time.YearMonth.from(date).plusMonths(delta.toLong()).atDay(1)
 }
+
+/** Standard gematria values, including final letter forms (ך/ם/ן/ף/ץ) since a keyboard may
+ *  insert them at the end of what's typed even though standalone numerals conventionally don't
+ *  use them -- treating them the same as their base form makes parsing forgiving either way. */
+private val HEBREW_LETTER_VALUES: Map<Char, Int> = mapOf(
+    'א' to 1, 'ב' to 2, 'ג' to 3, 'ד' to 4, 'ה' to 5, 'ו' to 6, 'ז' to 7, 'ח' to 8, 'ט' to 9,
+    'י' to 10, 'כ' to 20, 'ך' to 20, 'ל' to 30, 'מ' to 40, 'ם' to 40, 'נ' to 50, 'ן' to 50,
+    'ס' to 60, 'ע' to 70, 'פ' to 80, 'ף' to 80, 'צ' to 90, 'ץ' to 90,
+    'ק' to 100, 'ר' to 200, 'ש' to 300, 'ת' to 400
+)
 
 class HebrewCalendarSystem : CalendarSystem {
     override val id = "hebrew"
@@ -113,10 +123,43 @@ class HebrewCalendarSystem : CalendarSystem {
     /** Traditional Hebrew letter-numeral (gematria) for a day-of-month, e.g. 27 -> "כ״ז". */
     private fun hebrewNumeral(day: Int): String = hebrewLetters(day)
 
-    /** Hebrew year as letters, dropping the thousands digit per universal convention --
-     *  5786 is written תשפ״ו everywhere (calendars, invitations, gravestones), never with
-     *  a "5000" component spelled out. */
-    private fun hebrewYearLabel(year: Int): String = hebrewLetters(year % 1000)
+    /** Hebrew year as letters, now ALWAYS including the thousands-letter prefix -- e.g. 5786
+     *  is written ה'תשפ״ו, not just תשפ״ו. This used to drop the thousands digit (a common
+     *  convention when everyone already knows what millennium it is), but that made a typed
+     *  Hebrew year genuinely ambiguous once [parseHebrewYearLetters] started accepting other
+     *  millennia too -- there was no correct example anywhere in the app to type from. Showing
+     *  the prefix everywhere gives a template that's always safe to copy and edit. [hebrewLetters]
+     *  already appends a lone geresh to a single-letter result (e.g. hebrewLetters(5) -> "ה׳"),
+     *  which is exactly the separator convention [parseHebrewYearLetters] looks for. */
+    fun hebrewYearLabel(year: Int): String = hebrewLetters(year / 1000) + hebrewLetters(year % 1000)
+
+    /** Inverse of [hebrewYearLabel]. Reads an explicit thousands-letter prefix so jumps aren't
+     *  limited to the current millennium -- e.g. "ד'תשפ״ו" reads as 4000 + 786 = 4786. The
+     *  convention (matching what [hebrewYearLabel] now always displays): a single geresh
+     *  (' or ׳) with Hebrew letters on BOTH sides marks the split between the thousands
+     *  letter(s) and the rest of the number. A gershayim ("/״), which traditionally sits
+     *  before the last letter of the remainder instead, doesn't count as that split -- only a
+     *  *single* mark with more letters still following it means "there's a thousands part
+     *  here". If the text has no such prefix at all (e.g. someone deletes it while editing),
+     *  the thousands digit defaults to ה (5, the current millennium) rather than failing.
+     *  Returns null if the text contains no recognizable Hebrew numeral letters at all. */
+    fun parseHebrewYearLetters(text: String): Int? {
+        val singleMarks = charArrayOf('\'', '׳')
+        val splitIndex = text.indices.firstOrNull { i ->
+            text[i] in singleMarks &&
+                    text.substring(0, i).any { it in HEBREW_LETTER_VALUES } &&
+                    text.substring(i + 1).any { it in HEBREW_LETTER_VALUES }
+        }
+        val (thousandsPart, remainderPart) = if (splitIndex != null) {
+            text.substring(0, splitIndex) to text.substring(splitIndex + 1)
+        } else {
+            "" to text
+        }
+        val remainderValue = remainderPart.sumOf { HEBREW_LETTER_VALUES[it] ?: 0 }
+        if (remainderValue <= 0) return null
+        val thousandsDigit = if (thousandsPart.isEmpty()) 5 else thousandsPart.sumOf { HEBREW_LETTER_VALUES[it] ?: 0 }
+        return thousandsDigit * 1000 + remainderValue
+    }
 
     /** Shared gematria formatter for 1-999: hundreds (ק/ר/ש/ת, chained for 500+), then
      *  tens+ones, with the same ט״ו / ט״ז substitution for 15/16 applied to the final

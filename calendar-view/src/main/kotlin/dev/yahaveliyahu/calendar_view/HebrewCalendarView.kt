@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.os.Parcel
 import android.os.Parcelable
@@ -62,10 +63,30 @@ class HebrewCalendarView @JvmOverloads constructor(
 
     /** The anchor date (any day within the currently displayed period) driving monthBounds(). */
     private var displayedAnchor: LocalDate = LocalDate.now()
+
+    /** Public read of [displayedAnchor] -- lets a host app compare it against another date
+     *  (e.g. "is today already visible on the grid, so a 'jump to today' button should be a
+     *  no-op?") without needing to reconstruct a raw date out of [currentPeriodLabel]'s
+     *  system-specific display labels. Combine with [onMonthChangedListener] to stay correct
+     *  regardless of how the displayed period changed -- prev/next, a swipe, or scrollToPeriod
+     *  called directly, since all of those already funnel through here. */
+    fun getDisplayedAnchor(): LocalDate = displayedAnchor
     private val selectedDates = linkedSetOf<LocalDate>()
     private var events: List<CalendarEvent> = emptyList()
     private var eventsByDate: Map<LocalDate, List<CalendarEvent>> = emptyMap()
     private var holidaysByDate: Map<LocalDate, List<HolidayInfo>> = emptyMap()
+
+    /** A multi-day event's span, precomputed once in [setEvents] rather than re-derived from
+     *  Instants on every draw pass. */
+    private data class MultiDaySpan(val event: CalendarEvent, val startDate: LocalDate, val endDate: LocalDate)
+    private var multiDaySpans: List<MultiDaySpan> = emptyList()
+
+    /** Which banner lane (0, 1, 2...) each multi-day event occupies, keyed by event id.
+     *  Assigned once in [setEvents] via [assignLanes] rather than per-row, so an event that
+     *  continues across a week boundary keeps the same lane in every row it appears in instead
+     *  of jumping around, while non-overlapping events elsewhere in the month can still share a
+     *  lane number. */
+    private var laneByEventId: Map<String, Int> = emptyMap()
 
     private val dayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
     private val headerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
@@ -184,17 +205,52 @@ class HebrewCalendarView @JvmOverloads constructor(
 
     fun setEvents(newEvents: List<CalendarEvent>) {
         events = newEvents.filter { !it.isDeleted }
-        eventsByDate = events.groupBy {
-            it.start.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        val zone = java.time.ZoneId.systemDefault()
+        val (multiDay, singleDay) = events.partition { event ->
+            val startDate = event.start.atZone(zone).toLocalDate()
+            val endDate = (event.end ?: event.start).atZone(zone).toLocalDate()
+            endDate.isAfter(startDate)
+        }
+        eventsByDate = singleDay.groupBy {
+            it.start.atZone(zone).toLocalDate()
         }.mapValues { (_, dayEvents) -> dayEvents.sortedBy { it.start } }
+        multiDaySpans = multiDay.map { event ->
+            MultiDaySpan(
+                event = event,
+                startDate = event.start.atZone(zone).toLocalDate(),
+                endDate = (event.end ?: event.start).atZone(zone).toLocalDate()
+            )
+        }.sortedBy { it.startDate }
+        laneByEventId = assignLanes(multiDaySpans)
         invalidate()
+    }
+
+    /** Greedy interval-graph coloring: walk spans oldest-start-first, and give each one the
+     *  lowest lane index whose last-assigned span already ended before this one starts. This is
+     *  the standard "minimum number of meeting rooms" packing -- applied here across the whole
+     *  set of spans (not per displayed row), which is what keeps a single event's lane stable
+     *  across every row it happens to be visible in. */
+    private fun assignLanes(spans: List<MultiDaySpan>): Map<String, Int> {
+        val laneLastEndDate = mutableListOf<LocalDate>()
+        val result = mutableMapOf<String, Int>()
+        spans.forEach { span ->
+            val laneIndex = laneLastEndDate.indexOfFirst { it.isBefore(span.startDate) }
+            if (laneIndex >= 0) {
+                laneLastEndDate[laneIndex] = span.endDate
+                result[span.event.id] = laneIndex
+            } else {
+                laneLastEndDate.add(span.endDate)
+                result[span.event.id] = laneLastEndDate.size - 1
+            }
+        }
+        return result
     }
 
     fun refreshHolidays() {
         val (periodStart, periodEnd) = config.primaryCalendarSystem.monthBounds(displayedAnchor)
         val start = periodStart.minusDays(35)
         val end = periodEnd.plusDays(35)
-        holidaysByDate = holidayRegistry.holidaysFor(start, end, config.region).groupBy { it.date }
+        holidaysByDate = holidayRegistry.holidaysFor(start, end).groupBy { it.date }
         invalidate()
     }
 
@@ -227,6 +283,39 @@ class HebrewCalendarView @JvmOverloads constructor(
         return ceil((leadingOffset + daysInPeriod) / 7.0).toInt()
     }
 
+    /** One slot's worth of vertical space for a multi-day banner -- same height as a regular
+     *  chip slot, so the two read as consistent sizes even though banners live in their own
+     *  reserved area above the regular chip stack. */
+    private fun bannerSlotHeight(): Float = cellHeight * 0.19f
+
+    /** How many banner lanes are in use anywhere within [rowStart]..[rowEnd] -- i.e. the row's
+     *  extra height, in slots, on top of the fixed day-number+regular-chips budget. 0 when no
+     *  multi-day event touches this week at all. */
+    private fun bannerLaneCountForRow(rowStart: LocalDate, rowEnd: LocalDate): Int {
+        val lanesUsed = multiDaySpans
+            .asSequence()
+            .filter { !it.endDate.isBefore(rowStart) && !it.startDate.isAfter(rowEnd) }
+            .mapNotNull { laneByEventId[it.event.id] }
+        return (lanesUsed.maxOrNull() ?: -1) + 1
+    }
+
+    /** A row's actual on-screen height: the fixed per-row budget (day number + up to 2 regular
+     *  chips, same as before multi-day events existed) plus one slot per banner lane this
+     *  particular week needs. Grows without an artificial cap -- if several multi-day events
+     *  genuinely overlap the same week, the row simply gets taller so every one of them still
+     *  gets its own visible bar, rather than hiding any of them behind a "+N" indicator. */
+    private fun rowHeight(rowStart: LocalDate, rowEnd: LocalDate): Float =
+        cellHeight + bannerLaneCountForRow(rowStart, rowEnd) * bannerSlotHeight()
+
+    /** Row heights for every row of the currently displayed grid, in order -- computed once and
+     *  reused by measure, draw, and hit-testing so they can never drift out of sync with each
+     *  other (variable per-row height makes that risk higher than it was with a uniform one). */
+    private fun rowHeights(gridStart: LocalDate, rows: Int): List<Float> =
+        (0 until rows).map { row ->
+            val rowStart = gridStart.plusDays((row * 7).toLong())
+            rowHeight(rowStart, rowStart.plusDays(6))
+        }
+
     // ---- Measurement ----
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -237,7 +326,8 @@ class HebrewCalendarView @JvmOverloads constructor(
         titleHeight = cellWidth * 0.8f
         val (periodStart, periodEnd) = periodBounds()
         val rows = rowsNeededFor(periodStart, periodEnd)
-        val height = (titleHeight + headerHeight + cellHeight * rows).toInt()
+        val gridStart = gridStartFor(periodStart)
+        val height = (titleHeight + headerHeight + rowHeights(gridStart, rows).sum()).toInt()
         setMeasuredDimension(width, height)
     }
 
@@ -297,19 +387,42 @@ class HebrewCalendarView @JvmOverloads constructor(
         val rows = rowsNeededFor(periodStart, periodEnd)
         val today = LocalDate.now()
 
+        var rowTop = titleHeight + headerHeight
         for (row in 0 until rows) {
+            val rowStart = gridStart.plusDays((row * 7).toLong())
+            val rowEnd = rowStart.plusDays(6)
+            val rowSpans = multiDaySpans.filter { !it.endDate.isBefore(rowStart) && !it.startDate.isAfter(rowEnd) }
+            val laneCount = bannerLaneCountForRow(rowStart, rowEnd)
+            val thisRowHeight = rowHeight(rowStart, rowEnd)
+
             for (col in 0 until 7) {
                 val date = gridStart.plusDays((row * 7 + col).toLong())
                 val pixelCol = displayColumn(col)
                 val cellLeft = cellWidth * pixelCol
-                val cellTop = titleHeight + headerHeight + cellHeight * row
                 val isInPeriod = !date.isBefore(periodStart) && !date.isAfter(periodEnd)
-                drawDayCell(canvas, date, cellLeft, cellTop, isInDisplayedPeriod = isInPeriod, isToday = date == today)
+                drawDayCell(canvas, date, cellLeft, rowTop, isInDisplayedPeriod = isInPeriod, isToday = date == today, bannerLaneCount = laneCount)
             }
+
+            // Every genuinely overlapping multi-day event in this row gets its own bar -- no
+            // cap, no "+N" hiding any of them; that's exactly why the row grew taller above.
+            rowSpans.forEach { span ->
+                val lane = laneByEventId[span.event.id] ?: 0
+                drawMultiDayBanner(canvas, span, rowStart, rowEnd, rowTop, lane)
+            }
+
+            rowTop += thisRowHeight
         }
     }
 
-    private fun drawDayCell(canvas: Canvas, date: LocalDate, cellLeft: Float, cellTop: Float, isInDisplayedPeriod: Boolean, isToday: Boolean) {
+    private fun drawDayCell(
+        canvas: Canvas,
+        date: LocalDate,
+        cellLeft: Float,
+        cellTop: Float,
+        isInDisplayedPeriod: Boolean,
+        isToday: Boolean,
+        bannerLaneCount: Int
+    ) {
         val cx = cellLeft + cellWidth / 2f
         val markerRadius = cellWidth * 0.32f
         val markerCy = cellTop + markerRadius + cellHeight * 0.08f
@@ -341,17 +454,20 @@ class HebrewCalendarView @JvmOverloads constructor(
         val label = config.primaryCalendarSystem.labelFor(date)
         canvas.drawText(label.dayLabel, cx, markerCy + dayPaint.textSize * 0.35f, dayPaint)
 
-        drawEventAndHolidayChips(canvas, date, cellLeft, markerCy + markerRadius, isInDisplayedPeriod)
+        // Banner lanes (drawn separately, after all cells in the row) get their own dedicated,
+        // growing space above the regular chip stack -- so regular chips always keep their
+        // usual 2-slot budget regardless of how many multi-day events this row has.
+        val bannerReserve = bannerLaneCount * bannerSlotHeight()
+        drawEventAndHolidayChips(canvas, date, cellLeft, markerCy + markerRadius + bannerReserve, isInDisplayedPeriod, maxChips = 2)
     }
 
-    private fun drawEventAndHolidayChips(canvas: Canvas, date: LocalDate, cellLeft: Float, startY: Float, isInDisplayedPeriod: Boolean) {
+    private fun drawEventAndHolidayChips(canvas: Canvas, date: LocalDate, cellLeft: Float, startY: Float, isInDisplayedPeriod: Boolean, maxChips: Int) {
         val useHebrewNames = titleLocale.language == "iw" || titleLocale.language == "he"
         val dayHolidays = holidaysByDate[date].orEmpty().map { (if (useHebrewNames) it.hebrewName else it.name) to (it.colorHint ?: theme.holidayDotColor) }
         val dayEvents = eventsByDate[date].orEmpty().map { it.title to it.color }
         val items = dayHolidays + dayEvents
         if (items.isEmpty()) return
 
-        val maxChips = 2
         val chipHeight = cellHeight * 0.16f
         val chipWidth = cellWidth * 0.92f
         val chipLeft = cellLeft + cellWidth * 0.04f
@@ -379,6 +495,66 @@ class HebrewCalendarView @JvmOverloads constructor(
         }
     }
 
+    /** Draws one continuous bar for [span]'s portion of [rowStart]..[rowEnd], in its assigned
+     *  [lane] -- rounded on whichever visual edge is the event's TRUE start/end, square on
+     *  whichever edge just continues onto another (off-screen-this-row) week, so a
+     *  week-spanning event reads as one uninterrupted bar across rows rather than looking like
+     *  separate disconnected chips. Column-to-pixel mapping already accounts for RTL (see
+     *  [displayColumn]), so this figures out which visual side is "true start" from the mapped
+     *  pixel columns rather than assuming left-to-right. */
+    private fun drawMultiDayBanner(canvas: Canvas, span: MultiDaySpan, rowStart: LocalDate, rowEnd: LocalDate, rowTop: Float, lane: Int) {
+        val segStart = maxOf(span.startDate, rowStart)
+        val segEnd = minOf(span.endDate, rowEnd)
+        val startCol = ChronoUnit.DAYS.between(rowStart, segStart).toInt()
+        val endCol = ChronoUnit.DAYS.between(rowStart, segEnd).toInt()
+
+        val startPixelCol = displayColumn(startCol)
+        val endPixelCol = displayColumn(endCol)
+        val leftPixelCol = minOf(startPixelCol, endPixelCol)
+        val rightPixelCol = maxOf(startPixelCol, endPixelCol)
+        val startIsOnLeft = startPixelCol <= endPixelCol
+
+        val isTrueStart = segStart == span.startDate
+        val isTrueEnd = segEnd == span.endDate
+        val roundLeftEdge = if (startIsOnLeft) isTrueStart else isTrueEnd
+        val roundRightEdge = if (startIsOnLeft) isTrueEnd else isTrueStart
+
+        val markerRadius = cellWidth * 0.32f
+        val bannerHeight = cellHeight * 0.16f
+        val bannerTop = rowTop + markerRadius + cellHeight * 0.08f + markerRadius + lane * bannerSlotHeight()
+        val bannerLeft = cellWidth * leftPixelCol + cellWidth * 0.04f
+        val bannerRight = cellWidth * (rightPixelCol + 1) - cellWidth * 0.04f
+        val rect = RectF(bannerLeft, bannerTop, bannerRight, bannerTop + bannerHeight)
+
+        val leftRadius = if (roundLeftEdge) bannerHeight * 0.3f else 0f
+        val rightRadius = if (roundRightEdge) bannerHeight * 0.3f else 0f
+        val radii = floatArrayOf(
+            leftRadius, leftRadius,
+            rightRadius, rightRadius,
+            rightRadius, rightRadius,
+            leftRadius, leftRadius
+        )
+
+        chipBackgroundPaint.color = span.event.color
+        chipBackgroundPaint.alpha = 220
+        val path = Path().apply { addRoundRect(rect, radii, Path.Direction.CW) }
+        canvas.drawPath(path, chipBackgroundPaint)
+
+        // Only label the segment that contains the event's real start -- a week-spanning event
+        // otherwise stays a plain colored bar on its continuation rows, rather than repeating
+        // the title everywhere (a reasonable simplification for personal-calendar event
+        // lengths, which are essentially never more than a few days).
+        if (isTrueStart) {
+            chipTextPaint.textSize = bannerHeight * 0.62f
+            chipTextPaint.textAlign = Paint.Align.CENTER
+            chipTextPaint.color = bestTextColorOn(span.event.color)
+            val availableWidth = rect.width() - bannerHeight * 0.4f
+            val ellipsized = TextUtils.ellipsize(span.event.title, chipTextPaint, availableWidth, TextUtils.TruncateAt.END)
+            val centerX = (bannerLeft + bannerRight) / 2f
+            canvas.drawText(ellipsized.toString(), centerX, bannerTop + bannerHeight * 0.72f, chipTextPaint)
+        }
+    }
+
     private fun bestTextColorOn(backgroundColor: Int): Int {
         val luminance = (0.299 * Color.red(backgroundColor) + 0.587 * Color.green(backgroundColor) + 0.114 * Color.blue(backgroundColor)) / 255.0
         return if (luminance > 0.6) Color.BLACK else Color.WHITE
@@ -390,9 +566,20 @@ class HebrewCalendarView @JvmOverloads constructor(
         val logicalCol = displayColumn(pixelCol)
         val (periodStart, periodEnd) = periodBounds()
         val rows = rowsNeededFor(periodStart, periodEnd)
-        val row = ((y - titleHeight - headerHeight) / cellHeight).toInt().coerceIn(0, rows - 1)
         val gridStart = gridStartFor(periodStart)
-        return gridStart.plusDays((row * 7 + logicalCol).toLong())
+
+        var rowTop = titleHeight + headerHeight
+        var matchedRow = rows - 1
+        for (row in 0 until rows) {
+            val rowStart = gridStart.plusDays((row * 7).toLong())
+            val thisRowHeight = rowHeight(rowStart, rowStart.plusDays(6))
+            if (y < rowTop + thisRowHeight) {
+                matchedRow = row
+                break
+            }
+            rowTop += thisRowHeight
+        }
+        return gridStart.plusDays((matchedRow * 7 + logicalCol).toLong())
     }
 
     @SuppressLint("ClickableViewAccessibility")

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Declares the folder the FileProvider is allowed to serve content:// URIs for - just the
+     "shared_events" subfolder of the app's cache dir, where EventIcsSharer writes a temporary
+     .ics file right before handing its URI to the share sheet. -->
+<paths>
+    <cache-path name="shared_events" path="shared_events/" />
+</paths>

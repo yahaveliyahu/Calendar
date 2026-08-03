@@ -44,13 +44,13 @@ data class CalendarConfig(
     val primaryCalendarSystem: CalendarSystem = GregorianCalendarSystem(),
     val viewMode: CalendarViewMode = CalendarViewMode.MONTH,
     val selectionMode: SelectionMode = SelectionMode.SINGLE,
-    val firstDayOfWeek: java.time.DayOfWeek = java.time.DayOfWeek.SUNDAY,
-    val region: Region = Region.ISRAEL
+    val firstDayOfWeek: java.time.DayOfWeek = java.time.DayOfWeek.SUNDAY
 )
 
 /** A user event/task on the calendar. Per-event [color] is what makes overlapping
  *  events on the same day render distinctly (point #5). Emoji is just Unicode text
- *  in [title] -- no special rendering logic needed (point #6). */
+ *  in [title] -- no special rendering logic needed (point #6). [location] and [notes]
+ *  are both optional free text, shown in the event detail screen when non-blank. */
 data class CalendarEvent(
     val id: String,
     val title: String,
@@ -60,5 +60,7 @@ data class CalendarEvent(
     val reminderMinutesBefore: List<Int> = emptyList(),
     val attachmentUris: List<String> = emptyList(),
     val isDeleted: Boolean = false,
-    val deletedAt: java.time.Instant? = null
+    val deletedAt: java.time.Instant? = null,
+    val location: String = "",
+    val notes: String = ""
 )

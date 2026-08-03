@@ -25,7 +25,9 @@ object EventSerializer {
             append("\"end\":${e.end?.toEpochMilli() ?: "null"},")
             append("\"color\":${e.color},")
             append("\"reminderMinutesBefore\":[${e.reminderMinutesBefore.joinToString(",")}],")
-            append("\"isDeleted\":${e.isDeleted}")
+            append("\"isDeleted\":${e.isDeleted},")
+            append("\"location\":\"${escape(e.location)}\",")
+            append("\"notes\":\"${escape(e.notes)}\"")
             append("}")
         }
         append("]")
@@ -53,6 +55,8 @@ object EventSerializer {
                 ?.mapNotNull { it.trim().toIntOrNull() }
                 ?: emptyList()
             val isDeleted = field("isDeleted") == "true"
+            val location = stringField("location") ?: ""
+            val notes = stringField("notes") ?: ""
 
             events += CalendarEvent(
                 id = id,
@@ -61,7 +65,9 @@ object EventSerializer {
                 end = endMillis?.let { Instant.ofEpochMilli(it) },
                 color = color,
                 reminderMinutesBefore = reminders,
-                isDeleted = isDeleted
+                isDeleted = isDeleted,
+                location = location,
+                notes = notes
             )
         }
         return events

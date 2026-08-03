@@ -8,17 +8,20 @@ data class HolidayInfo(
     val hebrewName: String,
     val date: LocalDate,
     val providerId: String,
-    val colorHint: Int? = null,
-    val isDiasporaOnly: Boolean = false
+    val colorHint: Int? = null
 )
 
 interface HolidayProvider {
     val id: String
     val displayName: String
-    fun holidaysInRange(start: LocalDate, end: LocalDate, region: Region = Region.DIASPORA): List<HolidayInfo>
+    fun holidaysInRange(start: LocalDate, end: LocalDate): List<HolidayInfo>
 }
 
-enum class Region { ISRAEL, DIASPORA }
+/** One canonical, year-independent holiday type (e.g. "Purim" with no date attached to it) --
+ *  lets a host UI offer a "pick a holiday" list without re-deriving names from a resolved date
+ *  range. Use [HolidayProvider.holidaysInRange] over a wide-enough window to resolve an actual
+ *  occurrence of a given definition. */
+data class HolidayDefinition(val name: String, val hebrewName: String, val providerId: String)
 
 class HolidayRegistry {
     private val active = LinkedHashSet<HolidayProvider>()
@@ -28,8 +31,8 @@ class HolidayRegistry {
     fun isEnabled(provider: HolidayProvider): Boolean = provider in active
     fun enabledProviders(): List<HolidayProvider> = active.toList()
 
-    fun holidaysFor(start: LocalDate, end: LocalDate, region: Region = Region.DIASPORA): List<HolidayInfo> =
-        active.flatMap { it.holidaysInRange(start, end, region) }.sortedBy { it.date }
+    fun holidaysFor(start: LocalDate, end: LocalDate): List<HolidayInfo> =
+        active.flatMap { it.holidaysInRange(start, end) }.sortedBy { it.date }
 }
 
 /**
@@ -43,26 +46,54 @@ class HolidayRegistry {
  *    mathematical consequence of the Hebrew calendar's own postponement rules) and are
  *    shifted to avoid Shabbat: Mon -> Tue, Fri or Sat -> Thu, Wed is unchanged.
  * All deferral rules verified against Hebcal, Chabad.org, and OU.org, checked 2026-07-13.
+ * Only Israel practice is modeled here -- e.g. no diaspora-only "second day of Yom Tov" for
+ * Pesach/Sukkot/Shavuot, since this app has no concept of a non-Israel region to show it for.
  */
 class JewishHolidayProvider(private val hebrew: HebrewCalendarSystem = HebrewCalendarSystem()) : HolidayProvider {
     override val id = "jewish"
     override val displayName = "Jewish Holidays"
 
-    override fun holidaysInRange(start: LocalDate, end: LocalDate, region: Region): List<HolidayInfo> {
+    /** Canonical list of this provider's distinct holiday types, independent of any particular
+     *  year -- same names emitted by [holidaysInRange], just without a resolved date. */
+    fun definitions(): List<HolidayDefinition> = listOf(
+        HolidayDefinition("Rosh Hashanah", "ראש השנה", id),
+        HolidayDefinition("Rosh Hashanah II", "ראש השנה (יום ב')", id),
+        HolidayDefinition("Yom Kippur", "יום כיפור", id),
+        HolidayDefinition("Sukkot", "סוכות", id),
+        HolidayDefinition("Simchat Torah", "שמחת תורה", id),
+        HolidayDefinition("Chanukah (1st candle)", "חנוכה (נר ראשון)", id),
+        HolidayDefinition("Tu BiShvat", "ט\"ו בשבט", id),
+        HolidayDefinition("Purim", "פורים", id),
+        HolidayDefinition("Pesach (Passover)", "פסח", id),
+        HolidayDefinition("Seventh Day of Pesach", "שביעי של פסח", id),
+        HolidayDefinition("Shavuot", "שבועות", id),
+        HolidayDefinition("Yom HaShoah", "יום השואה", id),
+        HolidayDefinition("Yom HaZikaron", "יום הזיכרון", id),
+        HolidayDefinition("Yom Ha'atzmaut", "יום העצמאות", id),
+        HolidayDefinition("Yom Yerushalayim", "יום ירושלים", id),
+        HolidayDefinition("Tzom Gedaliah", "צום גדליה", id),
+        HolidayDefinition("17th of Tammuz (fast)", "צום י\"ז בתמוז", id),
+        HolidayDefinition("Tisha B'Av", "תשעה באב", id),
+        HolidayDefinition("Tu B'Av", "ט\"ו באב", id),
+        HolidayDefinition("Asara B'Tevet", "עשרה בטבת", id),
+        HolidayDefinition("Ta'anit Esther", "תענית אסתר", id)
+    )
+
+    override fun holidaysInRange(start: LocalDate, end: LocalDate): List<HolidayInfo> {
         val results = mutableListOf<HolidayInfo>()
         val startYear = hebrew.toHebrewDate(start).year - 1
         val endYear = hebrew.toHebrewDate(end).year + 1
 
         for (year in startYear..endYear) {
-            fun add(name: String, hebrewName: String, month: HebrewMonth, day: Int, diasporaOnly: Boolean = false) {
+            fun add(name: String, hebrewName: String, month: HebrewMonth, day: Int) {
                 val date = hebrew.toGregorian(HebrewDate(year, month, day))
                 if (!date.isBefore(start) && !date.isAfter(end)) {
-                    results += HolidayInfo(name, hebrewName, date, id, isDiasporaOnly = diasporaOnly)
+                    results += HolidayInfo(name, hebrewName, date, id)
                 }
             }
-            fun addFixed(name: String, hebrewName: String, date: LocalDate, diasporaOnly: Boolean = false) {
+            fun addFixed(name: String, hebrewName: String, date: LocalDate) {
                 if (!date.isBefore(start) && !date.isAfter(end)) {
-                    results += HolidayInfo(name, hebrewName, date, id, isDiasporaOnly = diasporaOnly)
+                    results += HolidayInfo(name, hebrewName, date, id)
                 }
             }
 
@@ -77,7 +108,7 @@ class JewishHolidayProvider(private val hebrew: HebrewCalendarSystem = HebrewCal
             add("Tu BiShvat", "ט\"ו בשבט", HebrewMonth.SHEVAT, 15)
             add("Purim", "פורים", purimMonth, 14)
             add("Pesach (Passover)", "פסח", HebrewMonth.NISAN, 15)
-            add("Pesach II", "פסח (יום ב')", HebrewMonth.NISAN, 16, diasporaOnly = true)
+            add("Seventh Day of Pesach", "שביעי של פסח", HebrewMonth.NISAN, 21)
             add("Shavuot", "שבועות", HebrewMonth.SIVAN, 6)
 
             addFixed("Yom HaShoah", "יום השואה", yomHaShoahDate(year))
@@ -89,10 +120,11 @@ class JewishHolidayProvider(private val hebrew: HebrewCalendarSystem = HebrewCal
             addFixed("Tzom Gedaliah", "צום גדליה", deferMinorFast(hebrew.toGregorian(HebrewDate(year, HebrewMonth.TISHREI, 3))))
             addFixed("17th of Tammuz (fast)", "צום י\"ז בתמוז", deferMinorFast(hebrew.toGregorian(HebrewDate(year, HebrewMonth.TAMMUZ, 17))))
             addFixed("Tisha B'Av", "תשעה באב", deferMinorFast(hebrew.toGregorian(HebrewDate(year, HebrewMonth.AV, 9))))
+            add("Tu B'Av", "ט\"ו באב", HebrewMonth.AV, 15)
             addFixed("Asara B'Tevet", "עשרה בטבת", deferMinorFast(hebrew.toGregorian(HebrewDate(year, HebrewMonth.TEVET, 10))))
             addFixed("Ta'anit Esther", "תענית אסתר", deferTaanitEsther(hebrew.toGregorian(HebrewDate(year, purimMonth, 13))))
         }
-        return if (region == Region.ISRAEL) results.filterNot { it.isDiasporaOnly } else results
+        return results
     }
 
     private fun deferMinorFast(normative: LocalDate): LocalDate =
@@ -125,7 +157,19 @@ class ChristianHolidayProvider : HolidayProvider {
     override val id = "christian"
     override val displayName = "Christian Holidays"
 
-    override fun holidaysInRange(start: LocalDate, end: LocalDate, region: Region): List<HolidayInfo> {
+    /** Canonical list of this provider's distinct holiday types, independent of any particular
+     *  year -- same names emitted by [holidaysInRange], just without a resolved date. */
+    fun definitions(): List<HolidayDefinition> = listOf(
+        HolidayDefinition("Christmas", "חג המולד", id),
+        HolidayDefinition("Epiphany", "חג ההתגלות", id),
+        HolidayDefinition("Ash Wednesday", "יום רביעי האפר", id),
+        HolidayDefinition("Palm Sunday", "יום ראשון של הדקל", id),
+        HolidayDefinition("Good Friday", "יום שישי הטוב", id),
+        HolidayDefinition("Easter Sunday", "חג הפסחא", id),
+        HolidayDefinition("Pentecost", "פנטקוסט (חג השבועות הנוצרי)", id)
+    )
+
+    override fun holidaysInRange(start: LocalDate, end: LocalDate): List<HolidayInfo> {
         val results = mutableListOf<HolidayInfo>()
         for (year in start.year..end.year) {
             fun add(name: String, hebrewName: String, date: LocalDate) {
