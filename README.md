@@ -127,4 +127,12 @@ Calendar/
 |---|---|
 | <img src="screenshots/gregorian_calenadr_month.jpeg" width="260" alt="Recipes"> | <img src="screenshots/hebrew_calendar_month.jpeg" width="260" alt="Detail Recipe">|
 
+| Weekly Calendar | Daily Calendar | Annual Calendar | 
+|---|---|---|
+| <img src="screenshots/WeeklyCalendar.jpeg" width="260" alt="Recipes"> | <img src="screenshots/DailyCalendar.jpeg" width="260" alt="Detail Recipe">| <img src="screenshots/AnnualCalendar.jpeg" width="260" alt="Detail Recipe">|
+
+| Add Event Screen | Time Jump | 
+|---|---|
+| <img src="screenshots/AddEventScreen.jpeg" width="260" alt="Recipes"> | <img src="screenshots/TimeJump.jpeg" width="260" alt="Detail Recipe">|
+
 
