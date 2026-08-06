@@ -74,7 +74,7 @@ Calendar/
 │   │   │   ├── EventIcsSharer.kt              # Builds and shares a real .ics file for an event
 │   │   │   ├── EventSearchDialog.kt           # Event search + detail screen (edit/share/delete)
 │   │   │   ├── HolidayCheckWorker.kt          # WorkManager job behind the daily holiday check
-│   │   │   ├── HolidayNotificationScheduler.kt# Silent "<holiday> שמח!" notifications
+│   │   │   ├── HolidayNotificationScheduler.kt  # Silent "<holiday> שמח!" notifications
 │   │   │   ├── MainActivity.kt
 │   │   │   ├── ReminderReceiver.kt            # Fires the actual reminder notification
 │   │   │   ├── ReminderScheduler.kt           # Exact-alarm scheduling + permission handling
