@@ -61,7 +61,7 @@ The month view's own rendering engine (HebrewCalendarView) lives in the separate
 
 ```
 Calendar/
-├── app/                              # Demo "Theme Studio" app: live theme editing, calendar-system switching, event management with reminders
+├── app/         # Demo "Theme Studio" app: live theme editing, calendar-system switching, event management with reminders
 │   ├── src/main/
 │   │   ├── AndroidManifest.xml
 │   │   ├── java/dev/yahaveliyahu/calendar/ui/theme/
