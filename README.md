@@ -59,6 +59,7 @@ The month view's own rendering engine (HebrewCalendarView) lives in the separate
 
 ## 📂 Project Structure
 
+```
 Calendar/
 ├── app/                              # Demo "Theme Studio" app: live theme editing, calendar-system switching, event management with reminders
 │   ├── src/main/
@@ -120,19 +121,20 @@ Calendar/
 ├── gradlew
 ├── gradlew.bat
 └── settings.gradle.kts
+```
 
 ## 📸 Screenshots
 
 | Gregorian Month | Hebrew Month | 
 |---|---|
-| <img src="screenshots/gregorian_calenadr_month.jpeg" width="260" alt="Recipes"> | <img src="screenshots/hebrew_calendar_month.jpeg" width="260" alt="Detail Recipe">|
+| <img src="screenshots/gregorian_calenadr_month.jpeg" width="260" alt="gregorian_calenadr_month"> | <img src="screenshots/hebrew_calendar_month.jpeg" width="260" alt="hebrew_calendar_month">|
 
 | Weekly Calendar | Daily Calendar | Annual Calendar | 
 |---|---|---|
-| <img src="screenshots/WeeklyCalendar.jpeg" width="260" alt="Recipes"> | <img src="screenshots/DailyCalendar.jpeg" width="260" alt="Detail Recipe">| <img src="screenshots/AnnualCalendar.jpeg" width="260" alt="Detail Recipe">|
+| <img src="screenshots/WeeklyCalendar.jpeg" width="260" alt="WeeklyCalendar"> | <img src="screenshots/DailyCalendar.jpeg" width="260" alt="DailyCalendar">| <img src="screenshots/AnnualCalendar.jpeg" width="260" alt="AnnualCalendar">|
 
 | Add Event Screen | Time Jump | 
 |---|---|
-| <img src="screenshots/AddEventScreen.jpeg" width="260" alt="Recipes"> | <img src="screenshots/TimeJump.jpeg" width="260" alt="Detail Recipe">|
+| <img src="screenshots/AddEventScreen.jpeg" width="260" alt="AddEventScreen"> | <img src="screenshots/TimeJump.jpeg" width="260" alt="TimeJump">|
 
 
