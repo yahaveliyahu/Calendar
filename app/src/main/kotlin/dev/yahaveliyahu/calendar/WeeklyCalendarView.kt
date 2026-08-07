@@ -66,8 +66,17 @@ val WEEK_HOUR_HEIGHT = 60.dp
 val WEEK_HOUR_LABEL_WIDTH = 32.dp
 private const val WEEK_INITIAL_SCROLL_HOUR = 6
 private const val WEEK_SWIPE_THRESHOLD_PX = 100f
-private const val NOW_TICK_INTERVAL_MS = 30_000L
 private val WEEK_ALLDAY_LANE_HEIGHT = 20.dp
+
+/** Milliseconds from [now] until the start of the next minute, so a tick scheduled with this
+ * delay lands right on the device clock's minute boundary instead of drifting on a fixed
+ * interval. Floored at 50ms so we never schedule a near-zero/negative delay.
+ * Non-private so [DailyCalendarView] can reuse it instead of re-implementing it. */
+fun millisUntilNextMinute(now: LocalDateTime): Long {
+    val nanosIntoMinute = now.second * 1_000_000_000L + now.nano
+    val nanosRemaining = 60_000_000_000L - nanosIntoMinute
+    return (nanosRemaining / 1_000_000L).coerceAtLeast(50L)
+}
 
 val WEEK_MONTH_ABBREVIATIONS = listOf(
     "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"
@@ -229,13 +238,15 @@ fun WeeklyCalendarView(
     onWeekChange: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Ticks every 30s so both "today" and the current-time line stay accurate live, including
-    // rolling over to the next day's column right at midnight -- not just computed once.
+    // Ticks right on each minute boundary of the device clock so both "today" and the
+    // current-time line stay in sync with it (including rolling over to the next day's
+    // column right at midnight) -- not just computed once, and not drifting on a fixed
+    // interval like a plain "every 30s" loop would.
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
         while (true) {
             now = LocalDateTime.now()
-            delay(NOW_TICK_INTERVAL_MS)
+            delay(millisUntilNextMinute(now))
         }
     }
     val today = now.toLocalDate()

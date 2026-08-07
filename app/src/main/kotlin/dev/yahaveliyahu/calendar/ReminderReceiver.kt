@@ -39,7 +39,7 @@ class ReminderReceiver : BroadcastReceiver() {
         }
 
         val subtitle = when {
-            minutesBefore <= 0 -> "Starting now"
+            minutesBefore == 0 -> "Starting now"
             minutesBefore < 60 -> "In $minutesBefore minutes"
             minutesBefore < 1440 -> "In ${minutesBefore / 60} hour(s)"
             else -> "In ${minutesBefore / 1440} day(s)"

@@ -149,6 +149,12 @@ private enum class CalendarViewMode { MONTH, YEAR, WEEK, DAY }
 private fun startOfWeekContaining(date: LocalDate): LocalDate =
     date.minusDays((date.dayOfWeek.value % 7).toLong())
 
+/** The next "round" hour for suggesting an event start time when creating an event for
+ *  *today* (e.g. 16:53 -> 17:00) -- you can't create an event at a time that's already
+ *  passed, so round up instead of always defaulting to a fixed hour.
+ */
+private fun nextRoundHour(from: LocalTime): LocalTime =
+    if (from.minute == 0) LocalTime.of(from.hour, 0) else LocalTime.of(from.hour, 0).plusHours(1)
 
 @Composable
 fun ThemeStudioScreen() {
@@ -456,7 +462,21 @@ fun ThemeStudioScreen() {
                         }
                     },
                     primarySystem = config.primaryCalendarSystem,
-                    onAddClick = { pendingAddDate = viewedDate; pendingViewDate = null },
+                    onAddClick = {
+                        if (viewedDate == LocalDate.now()) {
+                            val now = LocalTime.now()
+                            val rounded = nextRoundHour(now)
+                            // 23:xx rounds up to 00:00 -- that's actually the start of tomorrow,
+                            // not "00:00 today" (which would be before now / already passed).
+                            pendingAddDate = if (rounded < now) viewedDate.plusDays(1) else viewedDate
+                            pendingAddTime = rounded
+                        } else {
+                            // Future date: no "already passed" concern, keep the normal 9:00 default.
+                            pendingAddDate = viewedDate
+                            pendingAddTime = null
+                        }
+                        pendingViewDate = null
+                    },
                     onEventClick = { event -> viewingSearchResultEvent = event },
                     onDeleteClick = { event ->
                         events = events.filter { it.id != event.id }
@@ -872,7 +892,20 @@ private fun AddEventDialog(
             EventDateTimeField.START_TIME -> TimePickerPopup(
                 initialTime = startTime,
                 onDismiss = { activePicker = null },
-                onConfirm = { startTime = it }
+                onConfirm = { newStart ->
+                    // Changing the start time always re-syncs the end time to exactly
+                    // one hour later -- editable afterwards, but re-synced every time the
+                    // start time itself is changed again.
+                    startTime = newStart
+                    val newEnd = newStart.plusHours(1)
+                    endTime = newEnd
+                    if (!endDate.atTime(newEnd).isAfter(startDate.atTime(newStart))) {
+                        // Only happens when the new start is in the 23:00 hour, wrapping
+                        // the +1h end past midnight -- bump the end date forward a day so
+                        // the range stays valid instead of "ending" before it starts.
+                        endDate = startDate.plusDays(1)
+                    }
+                }
             )
             EventDateTimeField.END_DATE -> DatePickerPopup(
                 initialDate = endDate,
@@ -882,7 +915,16 @@ private fun AddEventDialog(
             EventDateTimeField.END_TIME -> TimePickerPopup(
                 initialTime = endTime,
                 onDismiss = { activePicker = null },
-                onConfirm = { endTime = it }
+                onConfirm = { newEnd ->
+                    // Editing the end time freely does NOT move the start time -- unless
+                    // the new end would land at/before the current start, which would
+                    // break the "start before end" rule; in that case pull the start back
+                    // to exactly one hour before the new end.
+                    endTime = newEnd
+                    if (!endDate.atTime(newEnd).isAfter(startDate.atTime(startTime))) {
+                        startTime = newEnd.minusHours(1)
+                    }
+                }
             )
             null -> Unit
         }

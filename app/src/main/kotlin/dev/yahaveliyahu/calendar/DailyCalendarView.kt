@@ -58,7 +58,6 @@ import java.time.LocalTime
 import java.time.ZoneId
 
 private const val DAY_SWIPE_THRESHOLD_PX = 100f
-private const val DAY_NOW_TICK_INTERVAL_MS = 30_000L
 private const val DAY_INITIAL_SCROLL_HOUR = 6
 
 private fun dayFullWeekdayLabel(dayOfWeek: DayOfWeek): String = when (dayOfWeek) {
@@ -89,11 +88,14 @@ fun DailyCalendarView(
     onDayChange: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Ticks right on each minute boundary of the device clock (see millisUntilNextMinute in
+    // WeeklyCalendarView.kt) so the current-time line stays in sync with it instead of
+    // drifting on a fixed interval.
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
         while (true) {
             now = LocalDateTime.now()
-            delay(DAY_NOW_TICK_INTERVAL_MS)
+            delay(millisUntilNextMinute(now))
         }
     }
     val today = now.toLocalDate()
