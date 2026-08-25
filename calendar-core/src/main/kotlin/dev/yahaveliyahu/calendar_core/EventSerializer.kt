@@ -37,7 +37,7 @@ object EventSerializer {
         val events = mutableListOf<CalendarEvent>()
         splitObjects(json).forEach { obj ->
             fun field(name: String): String? =
-                Regex("\"$name\"\\s*:\\s*(\"(?:[^\"\\\\]|\\\\.)*\"|\\[[^\\]]*\\]|[^,}]+)").find(obj)?.groupValues?.get(1)
+                Regex("\"$name\"\\s*:\\s*(\"(?:[^\"\\\\]|\\\\.)*\"|\\[[^]]*]|[^,}]+)").find(obj)?.groupValues?.get(1)
 
             fun stringField(name: String): String? = field(name)?.let {
                 if (it.startsWith("\"") && it.endsWith("\"")) unescape(it.substring(1, it.length - 1)) else null

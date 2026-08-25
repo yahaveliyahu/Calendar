@@ -57,8 +57,7 @@ class HebrewCalendarView @JvmOverloads constructor(
 
     var onDateSelectedListener: ((LocalDate) -> Unit)? = null
     /** Fired whenever the displayed period changes, with the PRIMARY calendar system's own
-     *  label for that period's first day -- e.g. Gregorian mode gives "July"/2026, Hebrew
-     *  mode gives "Tammuz"/5786. Use this to drive a title, not java.time.YearMonth. */
+     *  label for that period's first day */
     var onMonthChangedListener: ((SystemDate) -> Unit)? = null
 
     /** The anchor date (any day within the currently displayed period) driving monthBounds(). */
@@ -178,9 +177,7 @@ class HebrewCalendarView @JvmOverloads constructor(
     fun goToNextMonth() = scrollToPeriod(config.primaryCalendarSystem.shiftMonths(displayedAnchor, 1))
     fun goToPreviousMonth() = scrollToPeriod(config.primaryCalendarSystem.shiftMonths(displayedAnchor, -1))
 
-    /** The primary calendar system's label for the first day of the currently displayed period
-     *  -- e.g. drive a screen title from this instead of assuming Gregorian months.
-     *  [locale] defaults to the device locale but can be forced (e.g. Hebrew script always). */
+    /** The primary calendar system's label for the first day of the currently displayed period */
     fun currentPeriodLabel(locale: Locale = Locale.getDefault()): SystemDate {
         val periodStart = config.primaryCalendarSystem.monthBounds(displayedAnchor).first
         return config.primaryCalendarSystem.labelFor(periodStart, locale)
@@ -267,9 +264,7 @@ class HebrewCalendarView @JvmOverloads constructor(
         return super.performClick()
     }
 
-    // ---- Layout math shared by measure / draw / hit-testing (kept in one place on purpose --
-    // this trio getting out of sync with each other was the class of bug in the previous version) ----
-
+    // Layout math shared by measure / draw / hit-testing (kept in one place on purpose
     private fun periodBounds(): Pair<LocalDate, LocalDate> = config.primaryCalendarSystem.monthBounds(displayedAnchor)
 
     private fun gridStartFor(periodStart: LocalDate): LocalDate {
@@ -308,8 +303,7 @@ class HebrewCalendarView @JvmOverloads constructor(
         cellHeight + bannerLaneCountForRow(rowStart, rowEnd) * bannerSlotHeight()
 
     /** Row heights for every row of the currently displayed grid, in order -- computed once and
-     *  reused by measure, draw, and hit-testing so they can never drift out of sync with each
-     *  other (variable per-row height makes that risk higher than it was with a uniform one). */
+     *  reused by measure, draw, and hit-testing so they can never drift out of sync with each other */
     private fun rowHeights(gridStart: LocalDate, rows: Int): List<Float> =
         (0 until rows).map { row ->
             val rowStart = gridStart.plusDays((row * 7).toLong())
@@ -458,10 +452,11 @@ class HebrewCalendarView @JvmOverloads constructor(
         // growing space above the regular chip stack -- so regular chips always keep their
         // usual 2-slot budget regardless of how many multi-day events this row has.
         val bannerReserve = bannerLaneCount * bannerSlotHeight()
-        drawEventAndHolidayChips(canvas, date, cellLeft, markerCy + markerRadius + bannerReserve, isInDisplayedPeriod, maxChips = 2)
+        drawEventAndHolidayChips(canvas, date, cellLeft, markerCy + markerRadius + bannerReserve, isInDisplayedPeriod)
     }
 
-    private fun drawEventAndHolidayChips(canvas: Canvas, date: LocalDate, cellLeft: Float, startY: Float, isInDisplayedPeriod: Boolean, maxChips: Int) {
+    private fun drawEventAndHolidayChips(canvas: Canvas, date: LocalDate, cellLeft: Float, startY: Float, isInDisplayedPeriod: Boolean) {
+        val maxChips = 2
         val useHebrewNames = titleLocale.language == "iw" || titleLocale.language == "he"
         val dayHolidays = holidaysByDate[date].orEmpty().map { (if (useHebrewNames) it.hebrewName else it.name) to (it.colorHint ?: theme.holidayDotColor) }
         val dayEvents = eventsByDate[date].orEmpty().map { it.title to it.color }
@@ -499,9 +494,7 @@ class HebrewCalendarView @JvmOverloads constructor(
      *  [lane] -- rounded on whichever visual edge is the event's TRUE start/end, square on
      *  whichever edge just continues onto another (off-screen-this-row) week, so a
      *  week-spanning event reads as one uninterrupted bar across rows rather than looking like
-     *  separate disconnected chips. Column-to-pixel mapping already accounts for RTL (see
-     *  [displayColumn]), so this figures out which visual side is "true start" from the mapped
-     *  pixel columns rather than assuming left-to-right. */
+     *  separate disconnected chips. */
     private fun drawMultiDayBanner(canvas: Canvas, span: MultiDaySpan, rowStart: LocalDate, rowEnd: LocalDate, rowTop: Float, lane: Int) {
         val segStart = maxOf(span.startDate, rowStart)
         val segEnd = minOf(span.endDate, rowEnd)
@@ -542,8 +535,7 @@ class HebrewCalendarView @JvmOverloads constructor(
 
         // Only label the segment that contains the event's real start -- a week-spanning event
         // otherwise stays a plain colored bar on its continuation rows, rather than repeating
-        // the title everywhere (a reasonable simplification for personal-calendar event
-        // lengths, which are essentially never more than a few days).
+        // the title everywhere
         if (isTrueStart) {
             chipTextPaint.textSize = bannerHeight * 0.62f
             chipTextPaint.textAlign = Paint.Align.CENTER

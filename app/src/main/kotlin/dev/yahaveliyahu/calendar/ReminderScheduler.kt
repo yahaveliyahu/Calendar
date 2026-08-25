@@ -9,6 +9,7 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
+import androidx.core.net.toUri
 import dev.yahaveliyahu.calendar_core.CalendarEvent
 
 /**
@@ -40,7 +41,7 @@ object ReminderScheduler {
     fun requestScheduleExactAlarmPermission(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
         val intent = Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-            data = android.net.Uri.parse("package:${context.packageName}")
+            data = "package:${context.packageName}".toUri()
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)

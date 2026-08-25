@@ -242,7 +242,6 @@ fun TimeJumpDialog(
                     HorizontalDivider()
 
                     HolidayJumpRow(
-                        title = "קפיצה לחג הבא",
                         holidayNames = holidayDefinitions.map { it.hebrewName },
                         selectedIndex = selectedHolidayIndex,
                         onSelect = { selectedHolidayIndex = it },
@@ -326,14 +325,13 @@ private fun MonthYearJumpRow(
  *  and its own "הצג" button, same right-to-left ordering rationale as [MonthYearJumpRow]. */
 @Composable
 private fun HolidayJumpRow(
-    title: String,
     holidayNames: List<String>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     onShow: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, style = MaterialTheme.typography.titleSmall)
+        Text("קפיצה לחג הבא", style = MaterialTheme.typography.titleSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             InlineDropdownField(
                 selectedText = holidayNames.getOrElse(selectedIndex) { "" },

@@ -82,19 +82,7 @@ val WEEK_MONTH_ABBREVIATIONS = listOf(
     "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"
 )
 
-private fun weekWeekdayLabel(dayOfWeek: DayOfWeek): String = when (dayOfWeek) {
-    DayOfWeek.SUNDAY -> "יום א׳"
-    DayOfWeek.MONDAY -> "יום ב׳"
-    DayOfWeek.TUESDAY -> "יום ג׳"
-    DayOfWeek.WEDNESDAY -> "יום ד׳"
-    DayOfWeek.THURSDAY -> "יום ה׳"
-    DayOfWeek.FRIDAY -> "יום ו׳"
-    DayOfWeek.SATURDAY -> "שבת"
-}
-
 fun timeOffsetFromMinutes(minutes: Int): Dp = WEEK_HOUR_HEIGHT * (minutes / 60f)
-
-private fun weekTimeLabel(time: LocalTime): String = "%02d:%02d".format(time.hour, time.minute)
 
 /** One timed event's computed side-by-side slot: [lane] of [laneCount] equal-width columns
  *  within its day. [startMinutes]/[endMinutes] are minutes since midnight *of the day this
@@ -368,7 +356,7 @@ fun WeeklyCalendarView(
                             .padding(vertical = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(weekWeekdayLabel(date.dayOfWeek), style = MaterialTheme.typography.labelSmall, color = textColor)
+                        Text(eventFormWeekdayLabel(date.dayOfWeek), style = MaterialTheme.typography.labelSmall, color = textColor)
                         Box(
                             modifier = Modifier
                                 .padding(top = 2.dp)
@@ -535,7 +523,7 @@ fun WeeklyCalendarView(
                                         .background(Color.Red)
                                 )
                                 Text(
-                                    weekTimeLabel(nowTime),
+                                    formattedTimeLabel(nowTime),
                                     color = Color.Red,
                                     style = MaterialTheme.typography.labelSmall,
                                     modifier = Modifier.offset(y = lineY - 14.dp, x = 2.dp)

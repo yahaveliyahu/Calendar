@@ -28,14 +28,6 @@ data class CalendarTheme(
 ) {
     companion object {
         val LIGHT_DEFAULT = CalendarTheme()
-        val DARK_DEFAULT = CalendarTheme(
-            primaryColor = 0xFF7986CB.toInt(),
-            defaultTextColor = 0xFFECECEC.toInt(),
-            fridayTextColor = 0xFF90CAF9.toInt(),
-            saturdayTextColor = 0xFFEF9A9A.toInt(),
-            backgroundColor = 0xFF121212.toInt(),
-            isDarkMode = true
-        )
     }
 }
 
@@ -48,9 +40,7 @@ data class CalendarConfig(
 )
 
 /** A user event/task on the calendar. Per-event [color] is what makes overlapping
- *  events on the same day render distinctly (point #5). Emoji is just Unicode text
- *  in [title] -- no special rendering logic needed (point #6). [location] and [notes]
- *  are both optional free text, shown in the event detail screen when non-blank. */
+ *  events on the same day render distinctly. */
 data class CalendarEvent(
     val id: String,
     val title: String,

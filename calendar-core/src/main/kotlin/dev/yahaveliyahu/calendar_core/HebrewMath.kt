@@ -7,16 +7,10 @@ import java.time.LocalDate
  * the four dechiyot (postponement rules) that fix Rosh Hashanah to a valid weekday, the
  * 19-year (Metonic) leap-year cycle, and month-length tables.
  *
- * This is the same class of algorithm described in Dershowitz & Reingold's
- * "Calendrical Calculations" and used by most Hebrew-date converters. Internal day
- * numbers are on an arbitrary internal epoch; [CALIBRATION_OFFSET] anchors that epoch
- * to java.time's proleptic-Gregorian epoch day using one verified reference date, and
  * every other computed date is independently checked against known reference dates in
  * HebrewCalendarSystemTest.
  */
 internal object HebrewMath {
-
-    private const val HALAKIM_PER_DAY = 25920L      // 24h * 1080 halakim/hour
     private const val MONTHS_PER_CYCLE = 235L       // 19-year Metonic cycle = 235 lunar months
     private const val YEARS_PER_CYCLE = 19L
 
@@ -45,7 +39,7 @@ internal object HebrewMath {
         val leapThisYear = isLeapYear(year)
         val leapPrevYear = isLeapYear(year - 1)
 
-        // Dechiyot: postpone Rosh Hashanah by a day if the molad falls too late in the day,
+        // postpone Rosh Hashanah by a day if the molad falls too late in the day,
         // or on a Tuesday/Monday under conditions that would otherwise misalign following years.
         if (conjunctionParts >= 19440L ||
             (conjunctionDay % 7L == 2L && conjunctionParts >= 9924L && !leapThisYear) ||
